@@ -31,18 +31,20 @@ class PoolLayer(BasicLayer):
 		'''
 		self.input = src
 		self.inputSize = self.input.shape
-		self.outputSize = (self.inputSize[0],
+		self.outputSize = (self.inputSize[0],	# 图像数目
+			self.inputSize[-3],					# 每张图像的通道
 			int(np.ceil((self.inputSize[-2]-np.ceil(self.WSZ[-2]/2))/self.stepSize[-2])),
 			int(np.ceil((self.inputSize[-1]-np.ceil(self.WSZ[-1]/2))/self.stepSize[-1])) )
 
 		# pdb.set_trace()
 		self.output = np.zeros(self.outputSize)
-		for k in range(self.outputSize[0]):
-			for i in range(self.outputSize[-2]):
-				for j in range(self.outputSize[-1]):
-					self.output[k,i,j] = np.mean(
-						self.input[k, i*self.stepSize[-2]:min(i*self.stepSize[-2]+self.WSZ[-2], self.inputSize[-2]), 
-						j*self.stepSize[-1]:min(j*self.stepSize[-1]+self.WSZ[-1], self.inputSize[-1]) ])
+		for num in np.arange(self.outputSize[0]):
+			for k in range(self.outputSize[-3]):
+				for i in range(self.outputSize[-2]):
+					for j in range(self.outputSize[-1]):
+						self.output[num, k,i,j] = np.mean(
+							self.input[num, k, i*self.stepSize[-2]:min(i*self.stepSize[-2]+self.WSZ[-2], self.inputSize[-2]), 
+							j*self.stepSize[-1]:min(j*self.stepSize[-1]+self.WSZ[-1], self.inputSize[-1]) ])
 
 		self.delta = np.zeros(self.outputSize)
 		self.paddingDeltaSize = self.inputSize

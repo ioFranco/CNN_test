@@ -39,20 +39,23 @@ class SoftmaxLayer(BasicLayer):
 
 		self.input = src
 		self.inputSize = self.input.shape
-		self.outputSize = (self.numClass, 1,1)
+		self.outputSize = (self.inputSize[0], self.numClass, 1,1)
 		self.output = np.zeros(self.outputSize)
-		self.channelControl = np.ones((self.inputSize[0], self.outputSize[0]))
+		self.channelControl = np.ones((self.inputSize[-3], self.outputSize[-3]))
 
 		# pdb.set_trace()
-		for i in np.arange(self.outputSize[0]):
-			h = self.W[i]*self.input
-			# import pdb
+		for num in np.arange(self.outputSize[0]):
+			for i in np.arange(self.outputSize[-3]):
+				h = self.W[i]*self.input[num]
+				# import pdb
+				# pdb.set_trace()
+				self.output[num, i, 0] = np.sum(h)
+
 			# pdb.set_trace()
-			self.output[i, 0] = np.sum(h)
-
-		# pdb.set_trace()
-		self.output = np.exp(self.output)/np.sum(np.exp(self.output))
+			self.output[num] = np.exp(self.output[num])/np.sum(np.exp(self.output[num]))
 
 		self.delta = np.zeros(self.outputSize)		# 用于反向传播保留误差值
 		self.grad = np.zeros(self.WSZ)		# 用于反向传播保留梯度值
+		self.perGrad = np.zeros( (self.outputSize[0], *self.WSZ) )
 		self.numGradient = np.zeros(self.WSZ)		# 用于计算数值梯度值
+		self.perNumGradient = np.zeros( (self.outputSize[0], *self.WSZ) )

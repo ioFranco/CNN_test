@@ -38,16 +38,16 @@ class Backwards:
 				computeGrad(args[i-1], args[i])
 
 
-def softmaxLayerDelta(softmaxLayer, cost):
+def softmaxLayerDelta(softmaxLayer, perCost):
 	'''
 		作用：
 			计算softmax层的 Delta 值
 		参数：
-			cost：cost = sum(p_label*log(p_predict))
+			perCost：perCost = sum(p_label*log(p_predict))
 			softmaxLayer: 即将计算的softmax层
 	'''
 
-	softmaxLayer.delta = cost
+	softmaxLayer.delta = perCost
 
 
 def layerBeforeSoftmaxLayerDelta(layerBeforesoftmaxLayer, softmaxLayer):
@@ -81,27 +81,30 @@ def layerBeforeConvLayerDelta(layerBeforeconvLayer, convLayer):
 				即将计算的卷积层
 	'''
 
-	delta_convLayer = np.zeros(layerBeforeconvLayer.outputSize)    # 以下计算 conv 层的 Delta 值
+	delta_layerBeforeconvLayer = np.zeros(layerBeforeconvLayer.outputSize)    # 以下计算 conv 层的 Delta 值
 	# pdb.set_trace()
-	delta_layerAfterConvlayer_padding_Size = ( convLayer.outputSize[0], 
+	delta_convlayer_afterPadding_Size = ( 
+		convLayer.outputSize[0], 
+		convLayer.outputSize[-3],
 		convLayer.outputSize[-2]+2*convLayer.WSZ[-2]-2, 
 		convLayer.outputSize[-1]+2*convLayer.WSZ[-2]-2 )
-	delta_layerAfterConvlayer_padding = np.zeros( delta_layerAfterConvlayer_padding_Size )
+	delta_convlayer_afterPadding = np.zeros( delta_convlayer_afterPadding_Size )
 	offset = ( convLayer.WSZ[-2]-1, convLayer.WSZ[-1]-1 )
 	# pdb.set_trace()
-	delta_layerAfterConvlayer_padding[:, offset[0]:delta_layerAfterConvlayer_padding_Size[-2]-offset[0], offset[1]:delta_layerAfterConvlayer_padding_Size[-1]-offset[1]] =  convLayer.delta
-	for k in np.arange(layerBeforeconvLayer.outputSize[0]):
-		for i in np.arange(layerBeforeconvLayer.outputSize[-2]):
-			for j in np.arange(layerBeforeconvLayer.outputSize[-1]):
-				for c in np.arange(convLayer.outputSize[0]):    # 1 代表l+1层每个核与l层连接的通道
-					# pdb.set_trace()
-					# print(k, c, i, j)
-					
-					delta_convLayer[k, i, j] = delta_convLayer[k, i, j] + np.sum(
-						delta_layerAfterConvlayer_padding[c, i:i+convLayer.WSZ[-2], j:j+convLayer.WSZ[-1] ] *
-						np.rot90(convLayer.W[c, k], 2) )
+	delta_convlayer_afterPadding[:, :, offset[0]:delta_convlayer_afterPadding_Size[-2]-offset[0], offset[1]:delta_convlayer_afterPadding_Size[-1]-offset[1]] =  convLayer.delta
+	for num in np.arange(layerBeforeconvLayer.outputSize[0]):
+		for k in np.arange(layerBeforeconvLayer.outputSize[-3]):
+			for i in np.arange(layerBeforeconvLayer.outputSize[-2]):
+				for j in np.arange(layerBeforeconvLayer.outputSize[-1]):
+					for c in np.arange(convLayer.outputSize[-3]):    # 1 代表l+1层每个核与l层连接的通道
+						# pdb.set_trace()
+						# print(k, c, i, j)
+						
+						delta_layerBeforeconvLayer[num, k, i, j] = delta_layerBeforeconvLayer[num, k, i, j] + np.sum(
+							delta_convlayer_afterPadding[num, c, i:i+convLayer.WSZ[-2], j:j+convLayer.WSZ[-1] ] *
+							np.rot90(convLayer.W[c, k], 2) )
 
-	layerBeforeconvLayer.delta = delta_convLayer
+	layerBeforeconvLayer.delta = delta_layerBeforeconvLayer
 
 
 def layerBeforePoolLayerDelta(layerBeforepoolLayer, poolLayer):
@@ -110,22 +113,26 @@ def layerBeforePoolLayerDelta(layerBeforepoolLayer, poolLayer):
 			计算pooling层的 Delta 值
 	'''
 	paddingDelta = np.zeros(poolLayer.paddingDeltaSize)
-	for k in range(poolLayer.paddingDeltaSize[0]):
-		paddingDelta[k] = 1/(poolLayer.WSZ[-2]*
-			poolLayer.WSZ[-1])*np.kron(poolLayer.delta[k], 
+	for num in np.arange(poolLayer.paddingDeltaSize[0]):
+		paddingDelta[num] = 1/(poolLayer.WSZ[-2]*
+			poolLayer.WSZ[-1])*np.kron(poolLayer.delta[num], 
 			np.ones(poolLayer.WSZ))
 
-	layerBeforepoolLayer.delta = paddingDelta[:,0:poolLayer.paddingDeltaSize[-2], 0:poolLayer.paddingDeltaSize[-1]]
+	layerBeforepoolLayer.delta = paddingDelta[:,:,0:poolLayer.paddingDeltaSize[-2], 0:poolLayer.paddingDeltaSize[-1]]
 
 
 def computeGrad(beforeThisLayer, thisLayer):
-	for k in np.arange(thisLayer.WSZ[0]):
-		# pdb.set_trace()
-		for c in np.arange(thisLayer.WSZ[1]):
-			for i in np.arange(thisLayer.WSZ[-1]):
-				for j in np.arange(thisLayer.WSZ[-2]):
-					# print((k,c,i,j),thisLayer.layerType)
-					if thisLayer.layerType == 'convLayer' and thisLayer.channelControl[c, k] == 0:
-						continue
-					thisLayer.grad[k, c, i, j] = np.sum(
-						thisLayer.delta[k]*beforeThisLayer.output[c, i:i+thisLayer.outputSize[-1], j:j+thisLayer.outputSize[-2]])
+	thisLayer.perGrad = np.zeros( (thisLayer.inputSize[0],*(thisLayer.WSZ)) )
+	for num in np.arange(thisLayer.inputSize[0]):
+		for k in np.arange(thisLayer.WSZ[0]):
+			# pdb.set_trace()
+			for c in np.arange(thisLayer.WSZ[1]):
+				for i in np.arange(thisLayer.WSZ[-1]):
+					for j in np.arange(thisLayer.WSZ[-2]):
+						# print((k,c,i,j),thisLayer.layerType, beforeThisLayer.layerType)
+						if thisLayer.layerType == 'convLayer' and thisLayer.channelControl[c, k] == 0:
+							continue
+						thisLayer.perGrad[num, k, c, i, j] = np.sum(
+							thisLayer.delta[num, k]*beforeThisLayer.output[num, c, i:i+thisLayer.outputSize[-1], j:j+thisLayer.outputSize[-2]])
+	# pdb.set_trace()
+	thisLayer.grad = np.mean(thisLayer.perGrad, 0)

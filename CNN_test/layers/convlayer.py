@@ -55,7 +55,8 @@ class ConvLayer(BasicLayer):
 
 		self.input = src
 		self.inputSize = self.input.shape
-		self.outputSize = (self.WSZ[0], 			# 卷积后的输出数量和卷积核数目相同
+		self.outputSize = (self.inputSize[0], 		# 输入的图像数目
+			self.WSZ[0], 					# 卷积后的输出数量和卷积核数目相同
 			self.inputSize[-2]-self.WSZ[-2]+1,		# 卷积后的输出行数 = 输入行数-卷积核行数+1
 			self.inputSize[-1]-self.WSZ[-1]+1)		# 卷积后的输出列数 = 输入列数-卷积核列数+1
 		self.output = np.zeros(self.outputSize)
@@ -64,7 +65,9 @@ class ConvLayer(BasicLayer):
 
 		self.delta = np.zeros(self.outputSize)		# 用于反向传播保留误差值
 		self.grad = np.zeros(self.WSZ)		# 用于反向传播保留梯度值
+		self.perGrad = np.zeros( (self.outputSize[0], *self.WSZ) )
 		self.numGradient = np.zeros(self.WSZ)		# 用于计算数值梯度值
+		self.perNumGradient = np.zeros( (self.outputSize[0], *self.WSZ) )
 
 
 
@@ -74,14 +77,14 @@ def conv(output, input, W, WSZ, channelControl, outputSize):
 
 	'''
 
-
-	for k in np.arange(WSZ[0]):
-		for i in np.arange(outputSize[-2]):
-			for j in np.arange(outputSize[-1]):
-				for c in np.arange(WSZ[1]):    # 1 代表l+1层每个核与l层连接的通道
-					if channelControl[c, k] == 0:
-						continue
-					output[k, i, j] = ( output[k, i, j]+
-						np.sum(W[k, c] * 
-							input[c, i:i+WSZ[-2], j:j+WSZ[-1]]) )
+	for num in np.arange(outputSize[0]):
+		for k in np.arange(outputSize[-3]):
+			for i in np.arange(outputSize[-2]):
+				for j in np.arange(outputSize[-1]):
+					for c in np.arange(WSZ[1]):    # 1 代表l+1层每个核与l层连接的通道
+						if channelControl[c, k] == 0:
+							continue
+						output[num, k, i, j] = ( output[num, k, i, j]+
+							np.sum(W[k, c] * 
+								input[num, c, i:i+WSZ[-2], j:j+WSZ[-1]]) )
 

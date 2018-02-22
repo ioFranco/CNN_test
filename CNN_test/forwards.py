@@ -34,13 +34,20 @@ class Forwards:
         # convLayer.run(inputImgs)
         # softmaxLayer.run(convLayer.output)
 
+        # pdb.set_trace()
         softmaxLayer = args[-1]
-        self.predict = np.zeros(softmaxLayer.output.shape)
-        self.predict[np.argmax(softmaxLayer.output)] = 1
+
+        self.predict = np.zeros(softmaxLayer.outputSize)
+        self.delta = np.zeros(softmaxLayer.outputSize)
+        self.perCost = np.zeros((softmaxLayer.outputSize[0],1))
+        for num in np.arange(softmaxLayer.outputSize[0]):
+            self.predict[num, np.argmax(softmaxLayer.output[num])] = 1
+            # pdb.set_trace()
+            self.delta[num] = labels[num] - softmaxLayer.output[num]
+            # pdb.set_trace()
+            self.perCost[num] = np.sum(labels[num]*np.log(softmaxLayer.output[num]))
 
         # pdb.set_trace()
-        self.delta = labels - softmaxLayer.output
-        # pdb.set_trace()
-        self.cost = np.sum(labels*np.log(softmaxLayer.output))
+        self.cost = np.mean(self.perCost)
 
 
